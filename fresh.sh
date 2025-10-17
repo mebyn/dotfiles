@@ -313,7 +313,7 @@ enable_cli_biometrics() {
     fi
 
     echo "🔐 Enabling Touch ID authentication for sudo via pam-watchid..."
-    if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/logicer16/pam-watchid/HEAD/install.sh)" -- enable; then
+    if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mostpinkest/pam-watchid/HEAD/install.sh)" -- enable; then
         echo "✅ Touch ID enabled for sudo"
     else
         echo "❌ Failed to enable Touch ID via pam-watchid"
