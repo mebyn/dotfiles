@@ -46,8 +46,6 @@ brew "ollama"
 brew "pnpm"
 # Statistics utility to count lines of code
 brew "cloc"
-# OpenAI's coding agent that runs in your terminal
-brew "codex"
 # Command-line fuzzy finder written in Go
 brew "fzf"
 # Simple, fast and user-friendly alternative to find
@@ -74,6 +72,8 @@ brew "docker"
 brew "docker-compose"
 # Intuitive find & replace CLI
 brew "sd"
+# Cross-platform build automation system, that generates recipes for native build systems.
+brew "cmake"
 # Terminal emulator that uses platform-native UI and GPU acceleration
 cask "ghostty"
 # Graph visualization software from AT&T and Bell Labs
@@ -128,3 +128,5 @@ cask "font-atkynson-mono-nerd-font"
 cask "superwhisper"
 # Managed client-based VPN service to securely access AWS resources
 cask "aws-vpn-client"
+# OpenAI's coding agent that runs in your terminal
+cask "codex"

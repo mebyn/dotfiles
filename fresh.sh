@@ -11,6 +11,10 @@ REMOVED_PACKAGES=""
 BREW_SUMMARY_TABLE=""
 DOTFILES_LINKED=0
 CONFIG_FILES_LINKED=0
+readonly LAUNCH_AGENT_LABEL="com.melvin.fresh"
+readonly LAUNCH_AGENT_FILENAME="${LAUNCH_AGENT_LABEL}.plist"
+readonly LAUNCH_AGENT_SOURCE="$DOTFILES_DIR/launchd/$LAUNCH_AGENT_FILENAME"
+readonly LAUNCH_AGENT_TARGET="$HOME/Library/LaunchAgents/$LAUNCH_AGENT_FILENAME"
 
 # Temp files for Homebrew state snapshots
 BEFORE_FORMULAS_FILE=""
@@ -41,6 +45,19 @@ generate_agents_reference() {
         echo "🤖 Wrote $codex_dir/AGENTS.md"
     else
         echo "⚠️ Failed to generate AGENTS.md via agents-md.sh"
+    fi
+}
+
+# Generate Homebrew inventory skill and place it under ~/.codex/skills
+generate_skills_reference() {
+    echo "🧭 Generating skills inventory..."
+    local codex_dir="$HOME/.codex"
+    mkdir -p "$codex_dir"
+
+    if bash "$DOTFILES_DIR/skills-md.sh"; then
+        echo "🧠 Wrote $codex_dir/skills/homebrew-inventory/SKILL.md"
+    else
+        echo "⚠️ Failed to generate Homebrew inventory skill via skills-md.sh"
     fi
 }
 
@@ -181,6 +198,73 @@ generate_brew_summary_table() {
             [ -n "$name" ] || continue
             printf "%-9s  %-8s  %-32s  %-18s  %-18s\n" "Removed" "Cask" "$name" "$ver" "-"
         done <<< "$removed_casks"
+    fi
+}
+
+notify_scheduled_run() {
+    if [ "${LAUNCHD_JOB_LABEL:-}" != "$LAUNCH_AGENT_LABEL" ]; then
+        return 0
+    fi
+
+    if [ ! -x /usr/bin/osascript ]; then
+        echo "ℹ️ osascript unavailable; skipping notification for scheduled run"
+        return 0
+    fi
+
+    local message
+    message="fresh.sh maintenance started at $(date '+%Y-%m-%d %H:%M')"
+    message=${message//\"/\\\"}
+
+    if /usr/bin/osascript -e "display notification \"${message}\" with title \"Fresh Scheduler\" subtitle \"Scheduled run\""; then
+        echo "🔔 Posted notification for scheduled run"
+    else
+        echo "⚠️ Failed to post notification for scheduled run"
+    fi
+}
+
+setup_launch_agent() {
+    local label="$LAUNCH_AGENT_LABEL"
+    local source="$LAUNCH_AGENT_SOURCE"
+    local target="$LAUNCH_AGENT_TARGET"
+
+    if [ ! -f "$source" ]; then
+        echo "ℹ️ LaunchAgent template not found at $source; skipping setup"
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$target")"
+
+    local updated=""
+    if [ -L "$target" ] && [ "$(readlink "$target")" = "$source" ]; then
+        echo "✅ LaunchAgent already linked at $target"
+    else
+        if [ -e "$target" ]; then
+            rm -f "$target"
+            ln -s "$source" "$target"
+            echo "📄 Updated LaunchAgent symlink at $target"
+        else
+            ln -s "$source" "$target"
+            echo "📄 Installed LaunchAgent symlink at $target"
+        fi
+        updated="yes"
+    fi
+
+    local needs_reload=0
+    if ! launchctl list "$label" >/dev/null 2>&1; then
+        needs_reload=1
+    elif [ -n "$updated" ]; then
+        needs_reload=1
+    fi
+
+    if [ "$needs_reload" -eq 1 ]; then
+        launchctl unload "$target" >/dev/null 2>&1 || true
+        if launchctl load "$target"; then
+            echo "🚀 Loaded LaunchAgent $label"
+        else
+            echo "⚠️ Failed to load LaunchAgent $label"
+        fi
+    else
+        echo "✅ LaunchAgent $label already loaded"
     fi
 }
 
@@ -374,6 +458,8 @@ main() {
         exit 1
     fi
 
+    notify_scheduled_run
+
     echo "🚀 Setting up your Mac..."
 
     # Check requirements before running any network-dependent steps
@@ -388,11 +474,15 @@ main() {
     setup_homebrew
     setup_zimfw
 
+    setup_launch_agent
+
     # Setup bat theme
     setup_bat_theme
 
     # Generate AGENTS.md to ~/.codex for agents to consume
     generate_agents_reference
+    # Generate SKILLS.md to ~/.codex for agents to consume
+    generate_skills_reference
 
     # Setup screenshots directory
     echo "📸 Setting screenshot folder to $SCREENSHOT_DIR"

@@ -8,3 +8,6 @@ source ~/.kubectl_aliases
 export PATH="$PATH:$HOME/.local/bin"
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
+
+# Added by swiftly
+. "/Users/melvin/.swiftly/env.sh"
