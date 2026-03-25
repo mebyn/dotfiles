@@ -89,6 +89,29 @@ ZSH_AUTOSUGGEST_USE_ASYNC=1
 zmodload -F zsh/terminfo +p:terminfo
 zmodload zsh/complist
 
+# ---------------------
+# Forgit configuration
+# ---------------------
+# Remap forgit aliases that conflict with OMZ direct-action aliases
+export forgit_checkout_branch=gcbr    # browse branches (OMZ gcb = checkout -b)
+export forgit_checkout_commit=gcoc    # browse commits  (OMZ gco = checkout)
+export forgit_cherry_pick=gcpb        # browse cherry-pick (OMZ gcp = cherry-pick)
+
+# FZF styling for forgit (consistent with fzf-tab)
+export FORGIT_FZF_DEFAULT_OPTS="
+  --reverse
+  --border
+  --info=inline-right
+  --bind='ctrl-d:preview-half-page-down'
+  --bind='ctrl-u:preview-half-page-up'
+"
+
+# Log format matching the gitconfig graph log style
+export FORGIT_LOG_FORMAT='%C(auto)%h%d %s %C(blue)<%cn> %C(green)%cr'
+
+# bat theme (exported for forgit subprocesses)
+export BAT_THEME="base16-256"
+
 export NVM_LAZY_LOAD=true
 ZIM_HOME=${ZDOTDIR:-${HOME}}/.zim
 if [[ -r ${ZIM_HOME}/init.zsh ]]; then
@@ -188,11 +211,6 @@ export PATH="/usr/local/sbin:$PATH"
 # [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 # eval "$(pyenv init -)"
 
-# .gitignore Generator
-function gi() { curl -sLw "\n" https://www.toptal.com/developers/gitignore/api/$@ ;}
-
-# bat command Theme
-BAT_THEME="base16-256"
 
 # END Zsh Profiler
 # zprof

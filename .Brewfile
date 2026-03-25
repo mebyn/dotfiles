@@ -130,3 +130,9 @@ cask "superwhisper"
 cask "aws-vpn-client"
 # OpenAI's coding agent that runs in your terminal
 cask "codex"
+# OpenAI's official browser with ChatGPT built in
+cask "chatgpt-atlas"
+# Controller for Insta360 webcams
+cask "insta360-link-controller"
+# Anthropic's official Claude AI desktop app
+cask "claude"
