@@ -31,12 +31,13 @@ alias top='btop'
 alias python=python3
 alias pip=pip3
 
-# Local tools
-alias claude="$HOME/.claude/local/claude"
-
 # Prefer eza for ls variants if available
 alias ls='eza --group-directories-first --icons=auto'
 alias ll='eza -lh --group-directories-first --icons=auto'
 alias la='eza -lAh --group-directories-first --icons=auto'
 alias l='eza -lah --group-directories-first --icons=auto'
 alias lsa='eza -lah --group-directories-first --icons=auto'
+
+# Mail: prefer the OAuth-capable Cargo build of Himalaya for CLI access.
+alias himalaya='/Users/melvin/.cargo/bin/himalaya'
+alias mail='/Users/melvin/.cargo/bin/himalaya'
