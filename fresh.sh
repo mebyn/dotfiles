@@ -11,6 +11,7 @@ REMOVED_PACKAGES=""
 BREW_SUMMARY_TABLE=""
 DOTFILES_LINKED=0
 CONFIG_FILES_LINKED=0
+OPERATION_MODE="setup"
 readonly LAUNCH_AGENT_LABEL="com.melvin.fresh"
 readonly LAUNCH_AGENT_FILENAME="${LAUNCH_AGENT_LABEL}.plist"
 readonly LAUNCH_AGENT_SOURCE="$DOTFILES_DIR/launchd/$LAUNCH_AGENT_FILENAME"
@@ -26,7 +27,7 @@ AFTER_CASKS_FILE=""
 cleanup() {
     local rc="${1:-0}"
     if [ "$rc" -ne 0 ]; then
-        echo "❌ Error occurred during setup"
+        echo "❌ Error occurred during $OPERATION_MODE"
     fi
     # Remove temp snapshot files if they exist
     [ -n "${BEFORE_FORMULAS_FILE:-}" ] && rm -f "$BEFORE_FORMULAS_FILE" || true
@@ -65,22 +66,38 @@ trap 'rc=$?; cleanup "$rc"; exit "$rc"' EXIT
 
 
 upgrade_brew_packages() {
+    local failed=0
+
     echo "🔄 Updating Homebrew..."
-    brew update || { echo "❌ Failed to update Homebrew"; return 1; }
+    if ! brew update; then
+        echo "❌ Failed to update Homebrew"
+        failed=1
+    fi
     
     echo "⬆️  Upgrading outdated packages..."
-    brew upgrade || true
+    if ! brew upgrade; then
+        echo "❌ Failed to upgrade Homebrew formulae"
+        failed=1
+    fi
     
     echo "🔍 Upgrading casks..."
-    brew upgrade --cask --greedy || true
+    if ! brew upgrade --cask --greedy; then
+        echo "❌ Failed to upgrade Homebrew casks"
+        failed=1
+    fi
     
     # Check for outdated casks that need manual intervention
     local outdated_casks
-    outdated_casks=$(brew outdated --cask --greedy --verbose)
+    if ! outdated_casks=$(brew outdated --cask --greedy --verbose); then
+        echo "⚠️ Failed to inspect outdated casks"
+        failed=1
+    fi
     if [ -n "$outdated_casks" ]; then
         echo "📝 Some casks need manual upgrade:"
         echo "$outdated_casks"
     fi
+
+    return "$failed"
 }
 
 # Capture current Homebrew state (name + version) for formulas and casks
@@ -151,6 +168,7 @@ generate_brew_summary_table() {
     fi
 
     if [ -z "$have_changes" ]; then
+        rm -f "$bf_names" "$af_names" "$bc_names" "$ac_names"
         echo "No Homebrew changes detected."
         return 0
     fi
@@ -199,26 +217,41 @@ generate_brew_summary_table() {
             printf "%-9s  %-8s  %-32s  %-18s  %-18s\n" "Removed" "Cask" "$name" "$ver" "-"
         done <<< "$removed_casks"
     fi
+
+    rm -f "$bf_names" "$af_names" "$bc_names" "$ac_names"
 }
 
-notify_scheduled_run() {
-    if [ "${LAUNCHD_JOB_LABEL:-}" != "$LAUNCH_AGENT_LABEL" ]; then
-        return 0
-    fi
-
+notify_maintenance() {
+    local status="$1"
     if [ ! -x /usr/bin/osascript ]; then
-        echo "ℹ️ osascript unavailable; skipping notification for scheduled run"
+        echo "ℹ️ osascript unavailable; skipping maintenance notification"
         return 0
     fi
 
-    local message
-    message="fresh.sh maintenance started at $(date '+%Y-%m-%d %H:%M')"
+    local message subtitle
+    case "$status" in
+        started)
+            message="fresh.sh maintenance started at $(date '+%Y-%m-%d %H:%M')"
+            subtitle="Started"
+            ;;
+        completed)
+            message="fresh.sh maintenance completed at $(date '+%Y-%m-%d %H:%M')"
+            subtitle="Completed"
+            ;;
+        failed)
+            message="fresh.sh maintenance failed at $(date '+%Y-%m-%d %H:%M')"
+            subtitle="Failed"
+            ;;
+        *)
+            return 0
+            ;;
+    esac
     message=${message//\"/\\\"}
 
-    if /usr/bin/osascript -e "display notification \"${message}\" with title \"Fresh Scheduler\" subtitle \"Scheduled run\""; then
-        echo "🔔 Posted notification for scheduled run"
+    if /usr/bin/osascript -e "display notification \"${message}\" with title \"Fresh Scheduler\" subtitle \"${subtitle}\""; then
+        echo "🔔 Posted maintenance notification: $status"
     else
-        echo "⚠️ Failed to post notification for scheduled run"
+        echo "⚠️ Failed to post maintenance notification: $status"
     fi
 }
 
@@ -234,34 +267,38 @@ setup_launch_agent() {
 
     mkdir -p "$(dirname "$target")"
 
-    local updated=""
-    if [ -L "$target" ] && [ "$(readlink "$target")" = "$source" ]; then
-        echo "✅ LaunchAgent already linked at $target"
+    local rendered updated=""
+    rendered=$(mktemp "${target}.tmp.XXXXXX")
+    cp "$source" "$rendered"
+    /usr/bin/plutil -replace ProgramArguments.1 -string "$DOTFILES_DIR/fresh.sh" "$rendered"
+    /usr/bin/plutil -replace WorkingDirectory -string "$DOTFILES_DIR" "$rendered"
+    /usr/bin/plutil -replace StandardOutPath -string "$HOME/Library/Logs/fresh-launchd.log" "$rendered"
+    /usr/bin/plutil -replace StandardErrorPath -string "$HOME/Library/Logs/fresh-launchd.error.log" "$rendered"
+
+    if [ ! -L "$target" ] && [ -f "$target" ] && cmp -s "$rendered" "$target"; then
+        rm -f "$rendered"
+        echo "✅ LaunchAgent already installed at $target"
     else
-        if [ -e "$target" ]; then
-            rm -f "$target"
-            ln -s "$source" "$target"
-            echo "📄 Updated LaunchAgent symlink at $target"
-        else
-            ln -s "$source" "$target"
-            echo "📄 Installed LaunchAgent symlink at $target"
-        fi
+        mv -f "$rendered" "$target"
+        echo "📄 Installed LaunchAgent at $target"
         updated="yes"
     fi
 
+    local domain="gui/$(id -u)"
     local needs_reload=0
-    if ! launchctl list "$label" >/dev/null 2>&1; then
+    if ! launchctl print "$domain/$label" >/dev/null 2>&1; then
         needs_reload=1
     elif [ -n "$updated" ]; then
         needs_reload=1
     fi
 
     if [ "$needs_reload" -eq 1 ]; then
-        launchctl unload "$target" >/dev/null 2>&1 || true
-        if launchctl load "$target"; then
+        launchctl bootout "$domain/$label" >/dev/null 2>&1 || true
+        if launchctl bootstrap "$domain" "$target"; then
             echo "🚀 Loaded LaunchAgent $label"
         else
-            echo "⚠️ Failed to load LaunchAgent $label"
+            echo "❌ Failed to load LaunchAgent $label"
+            return 1
         fi
     else
         echo "✅ LaunchAgent $label already loaded"
@@ -269,6 +306,8 @@ setup_launch_agent() {
 }
 
 setup_homebrew() {
+    local failed=0
+
     # 🍺 Check if Homebrew is installed
     if ! command -v brew &> /dev/null; then
         echo "🛠️  Installing Homebrew..."
@@ -287,17 +326,26 @@ setup_homebrew() {
     capture_brew_state "before"
 
     echo "📦 Installing brew bundle..."
-    brew bundle install --file="$BREWFILE" --verbose || true
+    if ! brew bundle install --file="$BREWFILE" --verbose; then
+        echo "❌ Failed to install Homebrew bundle"
+        failed=1
+    fi
 
-    upgrade_brew_packages
+    if ! upgrade_brew_packages; then
+        failed=1
+    fi
 
     echo "🧹 Performing thorough Homebrew cleanup..."
-    REMOVED_PACKAGES=$(brew bundle --force cleanup --file="$BREWFILE" || true)
+    if ! REMOVED_PACKAGES=$(brew bundle --force cleanup --file="$BREWFILE"); then
+        echo "❌ Failed to reconcile Homebrew bundle cleanup"
+        failed=1
+    fi
     # Combine cleanup commands with error checking
     if ! { brew cleanup --prune=all && \
            brew cleanup -s && \
            brew cleanup --prune-prefix; }; then
         echo "⚠️ Warning: Some cleanup operations failed"
+        failed=1
     fi
 
     # Capture state after all operations
@@ -305,6 +353,8 @@ setup_homebrew() {
 
     # Build the Homebrew summary table for later printing
     BREW_SUMMARY_TABLE=$(generate_brew_summary_table "$BEFORE_FORMULAS_FILE" "$BEFORE_CASKS_FILE" "$AFTER_FORMULAS_FILE" "$AFTER_CASKS_FILE")
+
+    return "$failed"
 }
 
 create_symlinks() {
@@ -329,7 +379,8 @@ link_config_contents() {
     mkdir -p "$dest_dir"
 
     # Recurse and link files, preserving subdirectory structure
-    find "$src_dir" -type f -print0 | while IFS= read -r -d '' item; do
+    local item rel_path target
+    while IFS= read -r -d '' item; do
         rel_path="${item#"$src_dir/"}"
         target="$dest_dir/$rel_path"
         mkdir -p "$(dirname "$target")"
@@ -338,7 +389,7 @@ link_config_contents() {
         ln -s "$item" "$target"
         echo "🔁 $target -> $item"
         CONFIG_FILES_LINKED=$((CONFIG_FILES_LINKED + 1))
-    done
+    done < <(find "$src_dir" -type f -print0)
 }
 
 setup_bat_theme() {
@@ -451,6 +502,48 @@ print_summary() {
     echo "---------------------"
 }
 
+print_maintenance_summary() {
+    echo ""
+    echo "📦 Homebrew changes (maintenance run):"
+    if [ -n "$BREW_SUMMARY_TABLE" ]; then
+        echo "$BREW_SUMMARY_TABLE"
+    else
+        echo "No Homebrew changes detected."
+    fi
+    echo "---------------------"
+}
+
+run_maintenance() {
+    OPERATION_MODE="maintenance"
+    local failed=0
+
+    echo "🔄 Running scheduled Homebrew maintenance..."
+    notify_maintenance "started"
+
+    if ! command -v brew >/dev/null 2>&1; then
+        echo "❌ Homebrew is not installed; run fresh.sh manually first"
+        notify_maintenance "failed"
+        return 1
+    fi
+
+    capture_brew_state "before"
+    if ! upgrade_brew_packages; then
+        failed=1
+    fi
+    capture_brew_state "after"
+    BREW_SUMMARY_TABLE=$(generate_brew_summary_table "$BEFORE_FORMULAS_FILE" "$BEFORE_CASKS_FILE" "$AFTER_FORMULAS_FILE" "$AFTER_CASKS_FILE")
+    print_maintenance_summary
+
+    if [ "$failed" -ne 0 ]; then
+        echo "❌ Maintenance completed with errors"
+        notify_maintenance "failed"
+        return 1
+    fi
+
+    echo "✅ Maintenance completed successfully"
+    notify_maintenance "completed"
+}
+
 main() {
     # Check if running on macOS
     if [ "$(uname)" != "Darwin" ]; then
@@ -458,7 +551,22 @@ main() {
         exit 1
     fi
 
-    notify_scheduled_run
+    case "${1:-}" in
+        --maintenance)
+            if [ "$#" -ne 1 ]; then
+                echo "Usage: $0 [--maintenance]"
+                return 2
+            fi
+            run_maintenance
+            return
+            ;;
+        "")
+            ;;
+        *)
+            echo "Usage: $0 [--maintenance]"
+            return 2
+            ;;
+    esac
 
     echo "🚀 Setting up your Mac..."
 
@@ -471,7 +579,10 @@ main() {
     # Setup steps
     create_symlinks
     link_config_contents
-    setup_homebrew
+    local setup_failed=0
+    if ! setup_homebrew; then
+        setup_failed=1
+    fi
     setup_zimfw
 
     setup_launch_agent
@@ -499,8 +610,13 @@ main() {
 
     print_summary
 
+    if [ "$setup_failed" -ne 0 ]; then
+        echo "❌ Setup completed with Homebrew errors"
+        return 1
+    fi
+
     echo "✨ Setup completed successfully! 🎉 Enjoy your fresh and updated Mac! 🚀 "
     echo "💻 Remember to restart your terminal for changes to take effect."
 }
 
-main "$@"
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then main "$@"; fi

@@ -8,11 +8,12 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/melvin/Code/dotfiles/fresh.sh</string>
+        <string>__DOTFILES_DIR__/fresh.sh</string>
+        <string>--maintenance</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/melvin/Code/dotfiles</string>
+    <string>__DOTFILES_DIR__</string>
 
     <key>EnvironmentVariables</key>
     <dict>
@@ -28,13 +29,10 @@
         <integer>0</integer>
     </dict>
 
-    <key>ThrottleInterval</key>
-    <integer>259200</integer>
-
     <key>StandardOutPath</key>
-    <string>/Users/melvin/Library/Logs/fresh-launchd.log</string>
+    <string>__HOME__/Library/Logs/fresh-launchd.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/melvin/Library/Logs/fresh-launchd.error.log</string>
+    <string>__HOME__/Library/Logs/fresh-launchd.error.log</string>
 </dict>
 </plist>
