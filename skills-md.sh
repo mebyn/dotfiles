@@ -30,11 +30,13 @@ if ! command -v jq >/dev/null 2>&1; then
 else
   FORMULA_JSON=""
   if [[ -n "${FORMULA_LIST:-}" ]]; then
+    # shellcheck disable=SC2086
     FORMULA_JSON=$(brew info --json=v2 --formula $FORMULA_LIST 2>/dev/null || true)
   fi
 
   CASK_JSON=""
   if [[ -n "${CASK_LIST:-}" ]]; then
+    # shellcheck disable=SC2086
     CASK_JSON=$(brew info --json=v2 --cask $CASK_LIST 2>/dev/null || true)
   fi
 

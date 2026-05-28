@@ -58,6 +58,8 @@ brew "zoxide"
 brew "direnv"
 # Syntax-highlighting pager for git and diff
 brew "git-delta"
+# Static analysis and lint tool, for sh/bash scripts
+brew "shellcheck"
 # Modern ls replacement with icons and git info
 brew "eza"
 # Modern terminal resource monitor
@@ -74,8 +76,6 @@ brew "docker-compose"
 brew "sd"
 # Cross-platform build automation system, that generates recipes for native build systems.
 brew "cmake"
-# Terminal emulator that uses platform-native UI and GPU acceleration
-cask "ghostty"
 # Graph visualization software from AT&T and Bell Labs
 brew "graphviz"
 # Golang
@@ -84,10 +84,8 @@ brew "go"
 cask "jetbrains-toolbox"
 # Clipboard manager
 cask "maccy"
-# Latest JDK from the Eclipse Foundation (Adoptium)
-cask "temurin"
-# JDK 21 from the Eclipse Foundation (Adoptium)
-cask "temurin@21"
+# Latest LTS JDK from the Eclipse Foundation (Adoptium)
+cask "temurin@25"
 # Google Chrome
 cask "google-chrome"
 # Google Cloud SDK
@@ -136,3 +134,5 @@ cask "codex"
 cask "insta360-link-controller"
 # Anthropic's official Claude AI desktop app
 cask "claude"
+# Terminal emulator that uses platform-native UI and GPU acceleration
+cask "ghostty"
