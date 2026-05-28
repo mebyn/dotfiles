@@ -44,8 +44,8 @@ brew "bun"
 brew "ollama"
 # Fast, disk space efficient package manager
 brew "pnpm"
-# Statistics utility to count lines of code
-brew "cloc"
+# Program that displays statistics about your code
+brew "tokei"
 # Command-line fuzzy finder written in Go
 brew "fzf"
 # Simple, fast and user-friendly alternative to find
@@ -80,6 +80,30 @@ brew "cmake"
 brew "graphviz"
 # Golang
 brew "go"
+# GitHub command-line tool
+brew "gh"
+# Simple terminal UI for git commands
+brew "lazygit"
+# Handy way to save and run project-specific commands
+brew "just"
+# Autoformat shell script source code
+brew "shfmt"
+# Friendly and fast tool for sending HTTP requests
+brew "xh"
+# Command-line benchmarking tool
+brew "hyperfine"
+# More intuitive version of du in rust
+brew "dust"
+# Modern replacement for ps written in Rust
+brew "procs"
+# Executes commands in response to file modifications
+brew "watchexec"
+# Search and rewrite code at large scale using AST patterns
+brew "ast-grep"
+# Blazing fast terminal file manager written in Rust
+brew "yazi"
+# Mac App Store command-line interface
+brew "mas"
 # JetBrains tools manager
 cask "jetbrains-toolbox"
 # Clipboard manager
@@ -136,3 +160,9 @@ cask "insta360-link-controller"
 cask "claude"
 # Terminal emulator that uses platform-native UI and GPU acceleration
 cask "ghostty"
+# Application uninstaller
+cask "appcleaner"
+# Control external monitor brightness and volume
+cask "monitorcontrol"
+# System monitor in your menu bar
+cask "stats"
