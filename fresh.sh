@@ -2,6 +2,8 @@
 
 set -Eeuo pipefail
 
+export NONINTERACTIVE=1
+
 # Global variables
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCREENSHOT_DIR="$HOME/Documents/Screenshots"

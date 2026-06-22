@@ -491,6 +491,23 @@ test_maintenance_failure_prints_maintenance_triage() (
     assert_text_not_contains "$output" "existing directories were not overwritten" || return 1
 )
 
+test_noninteractive_mode_is_exported_by_default() (
+    local dir inherited
+    dir="$(mktemp -d)"
+    create_fixture "$dir"
+    export HOME="$dir/home"
+    unset NONINTERACTIVE
+
+    source "$dir/repo/fresh.sh"
+    trap - EXIT
+    inherited="$(bash -c 'printf "%s" "${NONINTERACTIVE:-}"')"
+
+    [ "$inherited" = "1" ] || {
+        fail "expected child process NONINTERACTIVE=1, got: ${inherited:-<unset>}"
+        return 1
+    }
+)
+
 run_test() {
     local name="$1"
     if "$name"; then
@@ -521,6 +538,7 @@ run_test test_verbose_linking_output_prints_per_file_lines
 run_test test_setup_failure_prints_homebrew_triage
 run_test test_setup_failure_prints_symlink_triage
 run_test test_maintenance_failure_prints_maintenance_triage
+run_test test_noninteractive_mode_is_exported_by_default
 
 printf '\n%s passed, %s failed\n' "$PASSED" "$FAILED"
 [ "$FAILED" -eq 0 ]
