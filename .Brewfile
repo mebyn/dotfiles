@@ -104,6 +104,8 @@ brew "ast-grep"
 brew "yazi"
 # Mac App Store command-line interface
 brew "mas"
+# Embeddable SQL OLAP Database Management System
+brew "duckdb"
 # JetBrains tools manager
 cask "jetbrains-toolbox"
 # Clipboard manager
@@ -148,8 +150,6 @@ cask "obsidian"
 cask "cursor"
 # AtkynsonMono Nerd Font (Atkinson Hyperlegible Mono)
 cask "font-atkynson-mono-nerd-font"
-# Dictation tool including LLM reformatting
-cask "superwhisper"
 # Managed client-based VPN service to securely access AWS resources
 cask "aws-vpn-client"
 # OpenAI's coding agent that runs in your terminal
@@ -166,3 +166,5 @@ cask "appcleaner"
 cask "monitorcontrol"
 # System monitor in your menu bar
 cask "stats"
+# Offline voice-to-text dictation app with AI enhancement
+cask "fluidvoice"
