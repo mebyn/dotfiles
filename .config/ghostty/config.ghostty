@@ -1,0 +1,21 @@
+theme = light:Catppuccin Latte,dark:Catppuccin Mocha
+background-opacity = 0.9
+background-blur = macos-glass-clear
+font-family = Fira Code
+font-family = Menlo
+font-size = 14
+font-thicken = true
+adjust-cell-height = 12%
+
+macos-titlebar-style = tabs
+window-padding-x = 12
+window-padding-y = 10
+window-padding-balance = true
+unfocused-split-opacity = 0.85
+
+mouse-hide-while-typing = true
+copy-on-select = clipboard
+link-url = true
+confirm-close-surface = false
+window-save-state = always
+macos-option-as-alt = true

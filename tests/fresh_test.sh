@@ -508,6 +508,33 @@ test_noninteractive_mode_is_exported_by_default() (
     }
 )
 
+test_ssh_directory_permissions_are_normalized() (
+    local dir mode
+    dir="$(mktemp -d)"
+    create_fixture "$dir"
+    export HOME="$dir/home"
+    mkdir -p "$HOME/.ssh/agent"
+    chmod 755 "$HOME/.ssh"
+    chmod 600 "$HOME/.ssh/agent"
+
+    source "$dir/repo/fresh.sh"
+    trap - EXIT
+    type -t setup_ssh_permissions >/dev/null || { fail "setup_ssh_permissions is not implemented"; return 1; }
+    setup_ssh_permissions >/dev/null
+
+    mode="$(stat -f "%OLp" "$HOME/.ssh" 2>/dev/null || stat -c "%a" "$HOME/.ssh")"
+    [ "$mode" = "700" ] || {
+        fail "expected ~/.ssh mode 700, got: $mode"
+        return 1
+    }
+
+    mode="$(stat -f "%OLp" "$HOME/.ssh/agent" 2>/dev/null || stat -c "%a" "$HOME/.ssh/agent")"
+    [ "$mode" = "700" ] || {
+        fail "expected ~/.ssh/agent mode 700, got: $mode"
+        return 1
+    }
+)
+
 run_test() {
     local name="$1"
     if "$name"; then
@@ -539,6 +566,7 @@ run_test test_setup_failure_prints_homebrew_triage
 run_test test_setup_failure_prints_symlink_triage
 run_test test_maintenance_failure_prints_maintenance_triage
 run_test test_noninteractive_mode_is_exported_by_default
+run_test test_ssh_directory_permissions_are_normalized
 
 printf '\n%s passed, %s failed\n' "$PASSED" "$FAILED"
 [ "$FAILED" -eq 0 ]

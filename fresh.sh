@@ -596,6 +596,31 @@ setup_bat_theme() {
     fi
 }
 
+setup_ssh_permissions() {
+    local ssh_dir="$HOME/.ssh"
+    local agent_dir="$HOME/.ssh/agent"
+
+    if [ -e "$ssh_dir" ] && [ ! -d "$ssh_dir" ]; then
+        log_error "$ssh_dir exists but is not a directory"
+        return 1
+    fi
+
+    if [ -e "$agent_dir" ] && [ ! -d "$agent_dir" ]; then
+        log_error "$agent_dir exists but is not a directory"
+        return 1
+    fi
+
+    if ! mkdir -p "$ssh_dir" "$agent_dir"; then
+        log_error "Failed to create SSH directories"
+        return 1
+    fi
+
+    if ! chmod 700 "$ssh_dir" "$agent_dir"; then
+        log_error "Failed to set SSH directory permissions"
+        return 1
+    fi
+}
+
 check_requirements() {
     local required_commands=("curl" "unzip")
     
@@ -788,7 +813,7 @@ print_failure_triage() {
 
     if has_failed_step "Zimfw setup" || has_failed_step "Rustup setup" || \
        has_failed_step "bat theme setup" || has_failed_step "Screenshot directory setup" || \
-       has_failed_step "Touch ID setup"; then
+       has_failed_step "Touch ID setup" || has_failed_step "SSH permissions setup"; then
         echo "- Non-Homebrew setup failures are usually follow-up tooling or macOS permission issues; fix the named step and rerun $0 --verbose."
     fi
 }
@@ -891,6 +916,7 @@ main() {
     if ! run_setup_step "Touch ID setup" enable_cli_biometrics; then setup_failed=1; fi
     if ! run_setup_step "Dotfile linking" create_symlinks; then setup_failed=1; fi
     if ! run_setup_step ".config linking" link_config_contents; then setup_failed=1; fi
+    if ! run_setup_step "SSH permissions setup" setup_ssh_permissions; then setup_failed=1; fi
     if ! run_setup_step "Homebrew setup" setup_homebrew; then setup_failed=1; fi
     if ! run_setup_step "Zimfw setup" setup_zimfw; then setup_failed=1; fi
     if ! run_setup_step "LaunchAgent setup" setup_launch_agent; then setup_failed=1; fi
