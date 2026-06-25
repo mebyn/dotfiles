@@ -309,6 +309,33 @@ test_config_link_refuses_to_replace_directory() (
     [ ! -L "$target" ] || { fail "existing config directory became a symlink"; return 1; }
 )
 
+test_config_link_repairs_symlinked_parent_without_modifying_repo_file() (
+    local dir repo_config home_config rc
+    dir="$(mktemp -d)"
+    create_fixture "$dir"
+    export HOME="$dir/home"
+    mkdir -p "$dir/repo/.config/ghostty" "$HOME/.config"
+    repo_config="$dir/repo/.config/ghostty/config.ghostty"
+    home_config="$HOME/.config/ghostty/config.ghostty"
+    printf 'theme = repo\n' > "$repo_config"
+    ln -s "$dir/repo/.config/ghostty" "$HOME/.config/ghostty"
+
+    source "$dir/repo/fresh.sh"
+    trap - EXIT
+    set +e
+    link_config_contents >/dev/null 2>&1
+    rc=$?
+    set -e
+
+    [ "$rc" -eq 0 ] || { fail "config linking failed for symlinked parent"; return 1; }
+    [ -f "$repo_config" ] || { fail "repo config file was removed"; return 1; }
+    [ ! -L "$repo_config" ] || { fail "repo config file became a symlink"; return 1; }
+    [ -d "$HOME/.config/ghostty" ] || { fail "home ghostty parent was not recreated"; return 1; }
+    [ ! -L "$HOME/.config/ghostty" ] || { fail "home ghostty parent remains a symlink"; return 1; }
+    [ -L "$home_config" ] || { fail "home config file was not linked"; return 1; }
+    [ "$(readlink "$home_config")" = "$repo_config" ] || { fail "home config link points to the wrong source"; return 1; }
+)
+
 test_dotfile_link_refuses_to_replace_directory() (
     local dir target rc
     dir="$(mktemp -d)"
@@ -556,6 +583,7 @@ run_test test_script_is_safe_to_source
 run_test test_brewfile_installs_shellcheck
 run_test test_homebrew_shellenv_uses_detected_prefix
 run_test test_config_link_refuses_to_replace_directory
+run_test test_config_link_repairs_symlinked_parent_without_modifying_repo_file
 run_test test_dotfile_link_refuses_to_replace_directory
 run_test test_bat_theme_skips_when_bat_is_unavailable
 run_test test_help_prints_available_options

@@ -537,6 +537,39 @@ link_file_safely() {
     ln -s "$src" "$target"
 }
 
+ensure_real_directory() {
+    local dir="$1"
+
+    if [ -L "$dir" ]; then
+        verbose_log "Replacing symlinked directory with real directory: $dir"
+        rm -f "$dir"
+    elif [ -e "$dir" ] && [ ! -d "$dir" ]; then
+        log_error "Refusing to replace existing non-directory: $dir"
+        return 1
+    fi
+
+    mkdir -p "$dir"
+}
+
+ensure_real_config_parent() {
+    local base_dir="$1"
+    local rel_dir="$2"
+    local current="$base_dir"
+    local component
+    local components
+
+    ensure_real_directory "$base_dir" || return 1
+
+    [ "$rel_dir" = "." ] && return 0
+
+    IFS='/' read -r -a components <<<"$rel_dir"
+    for component in "${components[@]}"; do
+        [ -n "$component" ] || continue
+        current="$current/$component"
+        ensure_real_directory "$current" || return 1
+    done
+}
+
 link_config_contents() {
     local src_dir
     src_dir="$DOTFILES_DIR/.config"
@@ -546,15 +579,19 @@ link_config_contents() {
 
     log_step "Linking .config contents into $HOME/.config; existing files and symlinks are replaced, directories are preserved"
     local dest_dir="$HOME/.config"
-    mkdir -p "$dest_dir"
+    ensure_real_directory "$dest_dir" || return 1
 
     # Recurse and link files, preserving subdirectory structure
     local failed=0
-    local item rel_path target
+    local item rel_path rel_parent target
     while IFS= read -r -d '' item; do
         rel_path="${item#"$src_dir/"}"
+        rel_parent="$(dirname "$rel_path")"
         target="$dest_dir/$rel_path"
-        mkdir -p "$(dirname "$target")"
+        if ! ensure_real_config_parent "$dest_dir" "$rel_parent"; then
+            failed=1
+            continue
+        fi
         if link_file_safely "$item" "$target"; then
             verbose_log "$target -> $item"
             CONFIG_FILES_LINKED=$((CONFIG_FILES_LINKED + 1))
