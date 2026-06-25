@@ -146,8 +146,6 @@ cask "logi-options+"
 cask "zoom"
 # Knowledge base that works on top of a local folder of plain text Markdown files
 cask "obsidian"
-# Write, edit, and chat about your code with AI
-cask "cursor"
 # AtkynsonMono Nerd Font (Atkinson Hyperlegible Mono)
 cask "font-atkynson-mono-nerd-font"
 # Managed client-based VPN service to securely access AWS resources
