@@ -52,7 +52,7 @@ assert_text_contains() {
 create_fixture() {
     local dir="$1"
     mkdir -p "$dir/repo/launchd" "$dir/repo/.config/atuin" "$dir/home" "$dir/bin"
-    sed '$d' "$SCRIPT" > "$dir/repo/fresh.sh"
+    grep -vxF 'if [ "${BASH_SOURCE[0]}" = "$0" ]; then main "$@"; fi' "$SCRIPT" > "$dir/repo/fresh.sh"
     cp "$PLIST" "$dir/repo/launchd/com.melvin.fresh.plist"
     printf 'fixture = true\n' > "$dir/repo/.config/atuin/config.toml"
 }
@@ -562,6 +562,24 @@ test_ssh_directory_permissions_are_normalized() (
     }
 )
 
+test_cleanup_handles_empty_temp_files_array_under_set_u() (
+    local rc
+
+    /bin/bash "$SCRIPT" --help >/dev/null 2>&1
+    rc=$?
+    [ "$rc" -eq 0 ] || {
+        fail "expected --help to exit 0, got: $rc"
+        return 1
+    }
+
+    /bin/bash "$SCRIPT" --bogus >/dev/null 2>&1
+    rc=$?
+    [ "$rc" -eq 2 ] || {
+        fail "expected --bogus to exit 2, got: $rc"
+        return 1
+    }
+)
+
 run_test() {
     local name="$1"
     if "$name"; then
@@ -595,6 +613,7 @@ run_test test_setup_failure_prints_symlink_triage
 run_test test_maintenance_failure_prints_maintenance_triage
 run_test test_noninteractive_mode_is_exported_by_default
 run_test test_ssh_directory_permissions_are_normalized
+run_test test_cleanup_handles_empty_temp_files_array_under_set_u
 
 printf '\n%s passed, %s failed\n' "$PASSED" "$FAILED"
 [ "$FAILED" -eq 0 ]

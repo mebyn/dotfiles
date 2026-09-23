@@ -26,6 +26,7 @@ readonly LAUNCH_AGENT_LABEL="com.melvin.fresh"
 readonly LAUNCH_AGENT_FILENAME="${LAUNCH_AGENT_LABEL}.plist"
 readonly LAUNCH_AGENT_SOURCE="$DOTFILES_DIR/launchd/$LAUNCH_AGENT_FILENAME"
 readonly LAUNCH_AGENT_TARGET="$HOME/Library/LaunchAgents/$LAUNCH_AGENT_FILENAME"
+readonly PAM_WATCHID_COMMIT="ce04b062ccb70ac781a68c832f9d84bb42816718"
 
 # Temp files for Homebrew state snapshots
 BEFORE_FORMULAS_FILE=""
@@ -96,7 +97,7 @@ cleanup() {
     fi
     # Remove temp files registered by the script.
     local file
-    for file in "${TEMP_FILES[@]}"; do
+    for file in ${TEMP_FILES[@]+"${TEMP_FILES[@]}"}; do
         [ -n "$file" ] && rm -f "$file" || true
     done
 }
@@ -257,12 +258,12 @@ capture_brew_state() {
     if [ "$stage" = "before" ]; then
         make_temp_file BEFORE_FORMULAS_FILE
         make_temp_file BEFORE_CASKS_FILE
-        brew list --versions 2>/dev/null | awk '{print $1, $NF}' | LC_ALL=C sort > "$BEFORE_FORMULAS_FILE" || true
+        brew list --formula --versions 2>/dev/null | awk '{print $1, $NF}' | LC_ALL=C sort > "$BEFORE_FORMULAS_FILE" || true
         brew list --cask --versions 2>/dev/null | awk '{print $1, $NF}' | LC_ALL=C sort > "$BEFORE_CASKS_FILE" || true
     else
         make_temp_file AFTER_FORMULAS_FILE
         make_temp_file AFTER_CASKS_FILE
-        brew list --versions 2>/dev/null | awk '{print $1, $NF}' | LC_ALL=C sort > "$AFTER_FORMULAS_FILE" || true
+        brew list --formula --versions 2>/dev/null | awk '{print $1, $NF}' | LC_ALL=C sort > "$AFTER_FORMULAS_FILE" || true
         brew list --cask --versions 2>/dev/null | awk '{print $1, $NF}' | LC_ALL=C sort > "$AFTER_CASKS_FILE" || true
     fi
 }
@@ -617,7 +618,10 @@ setup_bat_theme() {
         log_step "Installing bat Catppuccin Mocha theme"
         mkdir -p "$BATCONFIG_DIR/themes"
         if curl -fsSL "https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Mocha.tmTheme" -o "$theme_file"; then
-            bat cache --build
+            if ! bat cache --build; then
+                log_error "Failed to build bat cache"
+                return 1
+            fi
             # Ensure config file exists and set theme without clobbering other options
             local bat_config
             bat_config="$(bat --config-file)"
@@ -683,13 +687,30 @@ enable_cli_biometrics() {
     fi
 
     local pam_local_file="/etc/pam.d/sudo_local"
-    if [ -f "$pam_local_file" ] && grep -Eq 'pam_(watchid|tid)\.so' "$pam_local_file"; then
+    if [ -f "$pam_local_file" ] && grep -Eq '^[[:space:]]*auth.*pam_(watchid|tid)\.so' "$pam_local_file"; then
         log_ok "Touch ID already enabled for sudo"
         return 0
     fi
 
     log_step "Enabling Touch ID authentication for sudo via pam-watchid"
-    if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/logicer16/pam-watchid/HEAD/install.sh)" -- enable; then
+    local pam_watchid_dir
+    if ! pam_watchid_dir=$(mktemp -d); then
+        log_error "Failed to create temp dir for pam-watchid"
+        return 1
+    fi
+    trap 'rm -rf "$pam_watchid_dir"; trap - RETURN' RETURN
+
+    if ! git clone https://github.com/mostpinkest/pam-watchid "$pam_watchid_dir"; then
+        log_error "Failed to clone pam-watchid"
+        return 1
+    fi
+
+    if ! (cd "$pam_watchid_dir" && git checkout -q "$PAM_WATCHID_COMMIT"); then
+        log_error "Failed to check out pam-watchid commit $PAM_WATCHID_COMMIT"
+        return 1
+    fi
+
+    if (cd "$pam_watchid_dir" && make enable); then
         log_ok "Touch ID enabled for sudo"
     else
         log_error "Failed to enable Touch ID via pam-watchid"
@@ -715,8 +736,11 @@ setup_zimfw() {
     fi
 
     # zimfw 1.18.0: install installs new modules and triggers build/compile; update updates modules
-     ZIM_HOME="${ZIM_HOME:-$HOME/.zim}" \
-        zsh -c 'source "$ZIM_HOME/zimfw.zsh" install -q'
+    if ! ZIM_HOME="${ZIM_HOME:-$HOME/.zim}" \
+        zsh -c 'source "$ZIM_HOME/zimfw.zsh" install -q'; then
+        log_error "Failed to install zimfw modules"
+        return 1
+    fi
      ZIM_HOME="${ZIM_HOME:-$HOME/.zim}" \
         zsh -c 'source "$ZIM_HOME/zimfw.zsh" update -q'
 }
@@ -950,11 +974,11 @@ main() {
     local setup_failed=0
 
     # Setup steps
-    if ! run_setup_step "Touch ID setup" enable_cli_biometrics; then setup_failed=1; fi
     if ! run_setup_step "Dotfile linking" create_symlinks; then setup_failed=1; fi
     if ! run_setup_step ".config linking" link_config_contents; then setup_failed=1; fi
     if ! run_setup_step "SSH permissions setup" setup_ssh_permissions; then setup_failed=1; fi
     if ! run_setup_step "Homebrew setup" setup_homebrew; then setup_failed=1; fi
+    if ! run_setup_step "Touch ID setup" enable_cli_biometrics; then setup_failed=1; fi
     if ! run_setup_step "Zimfw setup" setup_zimfw; then setup_failed=1; fi
     if ! run_setup_step "LaunchAgent setup" setup_launch_agent; then setup_failed=1; fi
 
